@@ -35,14 +35,14 @@ class ScrapeCommand(GeneratingCommand):
     %(description)
 
     """
-
+    '''
     logger = logging.getLogger('splunk.Scrape')
     SPLUNK_HOME = os.environ['SPLUNK_HOME']
 
     LOGGING_DEFAULT_CONFIG_FILE = os.path.join(SPLUNK_HOME, 'etc', 'log.cfg')
     LOGGING_LOCAL_CONFIG_FILE = os.path.join(SPLUNK_HOME, 'etc', 'log-local.cfg')
     LOGGING_STANZA_NAME = 'python'
-    LOGGING_FILE_NAME = "Scrape.log"
+    LOGGING_FILE_NAME = "scrape.log"
     BASE_LOG_PATH = os.path.join('var', 'log', 'splunk')
     LOGGING_FORMAT = "%(asctime)s %(levelname)-s\t%(module)s:%(lineno)d - %(message)s"
     splunk_log_handler = logging.handlers.RotatingFileHandler(
@@ -50,8 +50,9 @@ class ScrapeCommand(GeneratingCommand):
     splunk_log_handler.setFormatter(logging.Formatter(LOGGING_FORMAT))
     logger.addHandler(splunk_log_handler)
     logger.setLevel(logging.INFO)
+    '''
 
-    url = Option()
+    url = Option(require=True)
     mask = Option()
     capture_after = Option()
     break_before = Option()
@@ -66,6 +67,7 @@ class ScrapeCommand(GeneratingCommand):
     index = Option()
     log_level = Option()
     skip_download = Option(validate=validators.Boolean())
+    delimiter = Option()
 
     def normalize_input(self, config):
         '''
@@ -89,8 +91,13 @@ class ScrapeCommand(GeneratingCommand):
 
         if config['mask']:
             if ',' in config['mask']:
-                self.logger.debug("splitting mask which is right now " + config['mask'])
+                #self.logger.debug("splitting mask which is right now " + config['mask'])
                 config['mask'] = config['mask'].split(',')
+
+        if not config['delimiter']:
+            config['delimiter'] = ';'
+        elif config['delimiter'].lower() == 'none' or config['delimiter'] == '' or config['delimiter'].lower() == 'ignore':
+            config['delimiter'] = None
 
         return config
 
@@ -110,29 +117,39 @@ class ScrapeCommand(GeneratingCommand):
         index = self.index
         log_level = self.log_level
         skip_download = self.skip_download
+        delimiter = self.delimiter
 
-        self.logger.debug("starting command")
+        #self.logger.debug("starting command")
         if skip_download is None:
             skip_download = False
 
-        if log_level:
-            if log_level.lower() == "debug":
-                self.logger.setLevel(logging.DEBUG)
-            else:
-                self.logger.setLevel(logging.INFO)
+        if not url:
+            yield {'_time': time(), '_raw': 'Please specify a url to scrape!  Example: |datascrape url=https://www.foo.com'}
+            sys.exit(1)
+
+        if not index:
+            index = "main"
+
+        #if log_level:
+        #    if log_level.lower() == "debug":
+                #self.logger.setLevel(logging.DEBUG)
+        #    else:
+                #self.logger.setLevel(logging.INFO)
 
         config = {'url': url, 'mask': mask, 'capture_after': capture_after, 'break_before': break_before,
                   'single_event_mode': single_event_mode, 'crawl': crawl,
-                  'download_only': download_only, 'skip_download': skip_download}
+                  'download_only': download_only, 'skip_download': skip_download, 'delimiter': delimiter}
+
         config = self.normalize_input(config)
+        #self.logger.debug("running with options:" + str(config))
 
         if hec_token:
-            self.logger.debug("found hec token parameter")
+            #self.logger.debug("found hec token parameter")
             hec_endpoint = None
             #if not hec_host:
             #    hec_host = "localhost"
             #hec_endpoint = http_event_collector(hec_token, hec_host)
-            #self.logger.info("created hec endpoint")
+            ##self.logger.debug("created hec endpoint")
         else:
             hec_endpoint = None
         event_options = {'sourcetype': sourcetype, 'index': index}
@@ -143,7 +160,7 @@ class ScrapeCommand(GeneratingCommand):
             download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads', 'path_name')
 
         config['path'] = download_path
-        self.logger.debug("scraping with options: " + str(config))
+        #self.logger.debug("scraping with options: " + str(config))
 
         if not skip_download:
             if not os.path.exists(download_path):
@@ -154,14 +171,14 @@ class ScrapeCommand(GeneratingCommand):
 
         files = self.get_file_list(download_path)
         files_processed_count = 0
-        self.logger.debug("we have downloaded " + str(len(files)) + " files")
+        #self.logger.debug("we have downloaded " + str(len(files)) + " files")
 
         if not download_only:
             for file_name in files:
-                #self.logger.info("parsing event for " + file_name)
+                ##self.logger.debug("parsing event for " + file_name)
                 events = self.parse_events(file_name, config)
-                #self.logger.info("formatting output for event")
-                output = self.format_output(events)
+                ##self.logger.debug("formatting output for event")
+                output = self.format_output(events, config['delimiter'])
                 if output:
 
                     if hec_endpoint:
@@ -192,7 +209,7 @@ class ScrapeCommand(GeneratingCommand):
         mask = config['mask']
         links = None
 
-        self.logger.debug("find_all_downloads begin with:" + str(url))
+        #self.logger.debug("find_all_downloads begin with:" + str(url))
         links = self.get_page_links(url, mask)
         if not links:
             # no links found on page, we must have found a download target
@@ -203,10 +220,10 @@ class ScrapeCommand(GeneratingCommand):
         while links:
 
             url = links.pop()
-            # self.logger.debug(" looking at page: " + url)
+            # #self.logger.debug(" looking at page: " + url)
             mask = self.get_url_mask(url, config)
             if mask is None:
-                # self.logger.debug("mask is none, skip url " + url)
+                # #self.logger.debug("mask is none, skip url " + url)
                 continue
             new_links = self.get_page_links(url, "")
 
@@ -214,7 +231,7 @@ class ScrapeCommand(GeneratingCommand):
                 self.download_file(config['path'], url, mask, config['download_only'])
                 sleep(0.2)
             else:
-                # self.logger.debug(" page " + url + " had links " + str(new_links))
+                # #self.logger.debug(" page " + url + " had links " + str(new_links))
                 for item in new_links:
                     links.append(item)
 
@@ -230,8 +247,8 @@ class ScrapeCommand(GeneratingCommand):
         :return:
         """
 
-        self.logger.debug("trying to download " + str(url) + " with options: " + str(download_path) + "," + str(mask) +
-                          ":" + str(download_only))
+        #self.logger.debug("trying to download " + str(url) + " with options: " + str(download_path) + "," + str(mask) +
+        #                   ":" + str(download_only))
         filename = ''
         try:
             filename = download_path + '/' + url.split(mask)[1][0:].replace('/', '_')
@@ -247,6 +264,7 @@ class ScrapeCommand(GeneratingCommand):
             sys.exit(1)
         data = url_item.read()
         with open(filename, 'w') as file_handle:
+            file_handle.write("url: "+str(url))
             file_handle.write(data)
 
     @staticmethod
@@ -301,7 +319,7 @@ class ScrapeCommand(GeneratingCommand):
         u = urlparse.urlparse(url)
 
         # find correct mask
-        # self.logger.debug("found these links:" + str(links))
+        # #self.logger.debug("found these links:" + str(links))
         links = self.filter_links(links)
 
         for item in links:
@@ -376,39 +394,60 @@ class ScrapeCommand(GeneratingCommand):
         print("parsing " + str(file))
 
         with open(file_name, 'r') as fh:
-            line = fh.readline()
-            while config['capture_after'] not in line:
-                if len(line) == 0:
-                    output = None
-                    print(str(file) + " did not find event break begin " + config['capture_after'])
-                line = fh.readline()
 
+            #end_file_name = fh.name.split('downloads')[1]
+
+            #if config['url']:
+             #   end_file_name = config['url'] + end_file_name
+            #if config['delimiter'] is None:
+            #   output = "filename: " + end_file_name + ' '
+            #else:
+            #    output = "filename: " + end_file_name + config['delimiter']
             line = fh.readline()
-            while config['break_before'] not in line:
-                if len(line) == 0:
-                    output = None
-                    print(str(file) + " did not find event break end " + config['break_before'])
-                    break
-                output = output + line
+
+            if config['capture_after']:
+                while config['capture_after'] not in line:
+                    if len(line) == 0:
+                        output = None
+                        print(str(file) + " did not find event break begin " + config['capture_after'])
+                    line = fh.readline()
+            if config['break_before']:
                 line = fh.readline()
+                while config['break_before'] not in line:
+                    if len(line) == 0:
+                        output = None
+                        print(str(file) + " did not find event break end " + config['break_before'])
+                        break
+                    output = output + line
+                    line = fh.readline()
+
+            if not config['break_before']:
+                line = fh.readline()
+                while line:
+                    output = output + line
+                    line = fh.readline()
 
         return output
 
     @staticmethod
-    def format_output(blob):
+    def format_output(blob, delim):
         """
         Convert 2+ whitespace to ;
         :param blob:
+        :param delim:  delim char or None
         :return:
         """
+        if delim is None:
+            return blob
         if blob is None:
-            return
-        blob = re.sub(r'\n', ';', blob)
-        blob = re.sub(r'\s*\.  +', ';', blob).strip()
-        blob = re.sub(r'\s{2,}', ';', blob).strip()
-        blob = re.sub(r'\s\.;', ';', blob).strip()
-        blob = re.sub(r'\.;', ';', blob).strip()
-        blob = re.sub(r';{2,}', ';', blob).strip()
+            return "None"
+
+        blob = re.sub(r'\n', delim, blob)
+        blob = re.sub(r'\s*\.  +', delim, blob).strip()
+        blob = re.sub(r'\s{2,}', delim, blob).strip()
+        blob = re.sub(r'\s\.' + delim, delim, blob).strip()
+        blob = re.sub(r'\.' + delim, delim, blob).strip()
+        blob = re.sub(r'' + delim + '{2,}', delim, blob).strip()
 
         return blob
 
