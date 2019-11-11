@@ -1,0 +1,54 @@
+<dashboard>
+  <row>
+    <panel>
+      <html>
+        <p>
+Required:</p>
+<p>
+<b>url</b>: The URL to begin scraping at.
+<br></br>Example:  Https://www.google.com<p>
+Optional:</p>
+</p>
+<p><b>mask</b>:  One or more url fragments to require if scraping a tree of urls. 
+Any links that do not include the fragment(s) will not be crawled.  This can help avoid crawling 
+navigation/header links.
+<br></br>Example: mask=/Results/
+<br></br>Example2: mask="/Results,/Districts"</p>
+<p>
+<b>capture_after</b>: All characters prior to (inclusive) the given will be ignored.  Helpful to filter out junk
+metadata.
+<br></br>Example: capture_after=PRE
+</p>
+
+<p>
+<b>break_before</b>: All characters after (inclusive) the given will be ignored.  Helpful to filter out uninteresting
+text.
+<br></br>Example: break_before=**
+
+</p><p>
+<b>single_event_mode</b>: Boolean flag to indicate that only one event will be found on a crawled page. Defaults to false.
+<br></br>Example: single_event_mode = true
+</p><p>
+<b>crawl</b>: Boolean flag to indicate to enable searching for additional URLs to crawl through. Defaults to false.
+<br></br>Example: crawl = true
+
+</p><p>
+<b>download_only</b>: Boolean to indicate that files should be downloaded only and not ingested.  Defaults to false.
+<br></br>Example: download_only = true
+</p><p>
+<b>path_name</b>:  Directory name to be used for saving crawled files; subdirectory of APP_PATH/bin/downloads.
+If blank, data will be downloaded to APP_PATH/bin/downloads.
+Example: path_name = elections2018
+
+</p><p>
+<b>log_level</b>: Use DEBUG to increase log level.
+<br></br>Example: log_level = DEBUG
+</p><p>
+<b>skip_download</b>: Boolean to indicate we should only process already downloaded content.  Specify path_name if you 
+did so when you downloaded the data originally.  Otherwise content from APP_PATH/bin/downloads will be ingested.
+<br></br>Example: skip_download=true
+</p>
+    </html>
+    </panel>
+  </row>
+</dashboard>
