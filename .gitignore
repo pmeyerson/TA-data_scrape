@@ -1,3 +1,4 @@
-.pyc
-.log
-.ini
+*.pyc
+*.log
+*.ini
+bin/downloads
