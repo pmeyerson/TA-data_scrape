@@ -1,6 +1,7 @@
 bs4
-git+git://github.com/georgestarcher/Splunk-Class-httpevent.git
-requests>=2.10.0
+requests>=2.22.0
 pytest
 pycharm-pytest
+pathlib2
+
 

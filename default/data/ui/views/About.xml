@@ -1,13 +1,15 @@
 <dashboard>
+    <title>About</title>
   <row>
     <panel>
       <html>
-        <p>
-Required:</p>
+        <p><b> | datascrape</b><br></br>
+            Executing the command by itself will parse and previously cached content, and delete it afterwards.
+            </p>
 <p>
-<b>url</b>: The URL to begin scraping at.
-<br></br>Example:  Https://www.google.com<p>
-Optional:</p>
+<b>url</b>: The URL to begin scraping at.  Include the protocol such as https://
+<br></br>Example:  url=https://www.google.com<p>
+
 </p>
 <p><b>mask</b>:  One or more url fragments to require if scraping a tree of urls. 
 Any links that do not include the fragment(s) will not be crawled.  This can help avoid crawling 
@@ -33,35 +35,28 @@ text.
 <br></br>Example: crawl = true
 
 </p><p>
-<b>sourcetype</b>: Sourcetype to use if data is ingested.
-<br></br>Example:sourcetype=foo
-</p><p>
-<b>hec_token</b>: HEC token to use for ingest.  Ensure HEC is globally enabled first.
-<br></br>Example: hec_token = guid
-</p><p>
-<b>hec_host</b>: HEC host to use with token.  Defaults to localhost.
-<br></br>Example: hec_host=0.0.0.0
-</p><p>
-<b>download_files</b>: Boolean to indicate that files should be downloaded and saved.  Defaults to false.
-<br></br>Example: download_files = true
-</p><p>
 <b>download_only</b>: Boolean to indicate that files should be downloaded only and not ingested.  Defaults to false.
 <br></br>Example: download_only = true
-</p><p>
+</p>
+          <p>
 <b>path_name</b>:  Directory name to be used for saving crawled files; subdirectory of APP_PATH/bin/downloads.
 If blank, data will be downloaded to APP_PATH/bin/downloads.
 Example: path_name = elections2018
 
-</p><p>
-<b>index</b>: Index name to ingest data into.  Defaults to main.
-<br></br>Example: index=test
-</p><p>
+</p>
+          <p>
 <b>log_level</b>: Use DEBUG to increase log level.
 <br></br>Example: log_level = DEBUG
-</p><p>
-<b>skip_download</b>: Boolean to indicate we should only process already downloaded content.  Specify path_name if you 
+</p>
+          <p>
+<b>use_cache</b>: Boolean to indicate we should only process already downloaded content.  Specify path_name if you
 did so when you downloaded the data originally.  Otherwise content from APP_PATH/bin/downloads will be ingested.
-<br></br>Example: skip_download=true
+<br></br>Example: use_cache=true
+
+</p><p>
+<b>cache_files</b>:  Any downloaded files should be retained after parsing.
+Example: cache_files = true
+
 </p>
     </html>
     </panel>

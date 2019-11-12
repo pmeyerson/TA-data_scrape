@@ -1,7 +1,5 @@
 <nav>
     
     <view name="flashtimeline" default='true' />
-  	<view name="Food Safety Violations" />
-  	<view name="Water Quality Violations" />
   	<view name="About" default='false' />
 </nav>

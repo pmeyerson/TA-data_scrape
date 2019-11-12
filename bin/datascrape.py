@@ -65,12 +65,13 @@ class ScrapeCommand(GeneratingCommand):
     crawl = Option(validate=validators.Boolean())
     crawlElement = Option()
     sourcetype = Option()
-    download_files = Option(validate=validators.Boolean())
     download_only = Option(validate=validators.Boolean())
+    cache_files = Option(validate=validators.Boolean())
+    use_cache = Option(validate=validators.Boolean())
     path_name = Option()
     index = Option()
     log_level = Option()
-    skip_download = Option(validate=validators.Boolean())
+
     delimiter = Option()
 
     download_path = None
@@ -88,7 +89,7 @@ class ScrapeCommand(GeneratingCommand):
         self.logger.debug("normalizing: " +str(config))
 
         # Ensure config['mask'] is always a list to keep code simpler later on
-        if 'mask' in config:
+        if self.mask:
             if ',' in self.mask:
                 self.mask = self.mask.split(',')
             else:
@@ -99,18 +100,20 @@ class ScrapeCommand(GeneratingCommand):
         elif self.delimiter.lower() in ['none', '', 'ignore']:
             self.delimiter = None
 
+        if not self.index:
+            self.index = "main"
+
+        if not self.path_name:
+            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads')
+        else:
+            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads', 'path_name')
+
     def generate(self):
 
          #yield{'_time': time(), '_raw': 'foo'}
 
         self.logger.debug("starting command execution")
 
-        if self.skip_download is None:
-            self.skip_download = False
-
-        if not self.index:
-            self.index = "main"
-        
         if self.log_level:
             if self.log_level.lower() == "debug" or self.log_level == "DEBUG":
                 self.logger.setLevel(logging.DEBUG)
@@ -119,26 +122,31 @@ class ScrapeCommand(GeneratingCommand):
                 self.logger.setLevel(logging.INFO)
 
         self.normalize_input()
-        #self.logger.debug("running with options:" + str(config))
-
-        if not self.path_name:
-            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads')
-        else:
-            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads', 'path_name')
 
         # windows support below
         #download_path = 'C:\\Program Files\\Splunk\\etc\\apps\\TA-data_scrape\\bin\\downloads'
 
-        #self.logger.debug("scraping with options: " + str(config))
-        
-        if not self.skip_download:
+
+        if not self.use_cache:
             if not os.path.exists(self.download_path):
                 os.mkdir(self.download_path)
 
-        if self.crawl:
-            self.crawl_url()
+            if self.crawl and self.url:
+                self.crawl_url()
+
+            elif not self.crawl and self.url:
+                parsed_url = urlparse.urlparse(self.url)
+                self.download_file(self.download_path, self.url, self.mask, self.download_only)
 
         files = self.get_file_list()
+
+        if not files:
+            if not self.url:
+                yield {'_time': time(), '_raw': 'No URL specified and no cached content found'}
+            else:
+                yield {'_time': time(), '_raw': 'No content to retrieve from ' + str(self.url)}
+
+
         files_processed_count = 0
         self.logger.debug("we have downloaded " + str(len(files)) + " files")
 
@@ -158,13 +166,13 @@ class ScrapeCommand(GeneratingCommand):
                 else:
                     yield {'_time': time(), '_raw': 'no output parsed from:' + file_name}
 
-
         else:
             for fn in files:
                 yield {'_time': time(), '_raw': 'downloaded ' + '/' + self.download_path + fn}
 
         sleep(1)
-        #self.finish()
+        if not self.cache_files:
+            self.clean_output()
 
 
     def crawl_url(self):
@@ -175,6 +183,8 @@ class ScrapeCommand(GeneratingCommand):
         :return:
         """
         links = None
+        if not self.url:
+            return
 
         self.logger.debug("find_all_downloads begin with:" + str(self.url))
         links = self.get_page_links(self.url, self.mask)
@@ -217,8 +227,16 @@ class ScrapeCommand(GeneratingCommand):
         filename = ''
         try:
             mask = self.get_url_mask(url)
+            if not mask:
+                if '/' in url:
+                    mask = url.split('/')[-2]
+                    if mask:
+                        filename = download_path + '/' + url.split(mask)[1][0:].replace('/', '')
+                    else:
+                        filename = download_path + '/' + url.replace('/', '')
+                else:
+                    filename = download_path + '/' + url.replace('/', '')
 
-            filename = download_path + '/' + url.split(mask)[1][0:].replace('/', '')
         except ValueError:
             print("failed to generate filename for {0}, {1}".format(url, mask))
             sys.exit(1)
@@ -229,10 +247,10 @@ class ScrapeCommand(GeneratingCommand):
             url_item = urllib2.urlopen(url)
         except urllib2.HTTPError as e:
             print(str(e.errno) + " HTTP ERROR RETURNED FROM URL " + str(url))
-            sys.exit(6)
+            sys.exit(1)
         except urllib2.URLError as e:
             print(e.reason + ": url was " + str(url))
-            sys.exit(5)
+            sys.exit(1)
         data = url_item.read()
         with open(filename, 'w') as file_handle:
             file_handle.write("url: "+str(url))
@@ -263,6 +281,8 @@ class ScrapeCommand(GeneratingCommand):
         :param href_mask:
         :return:
         """
+        if not url:
+            return []
         self.logger.debug("looking for links on page: " + str(url) + ", " + str(href_mask))
         if url.rfind('.') > url.rfind('/'):  # url ends with . + file type; is not a web directory name
             page_type = url[url.rfind('.')+1:]
@@ -348,8 +368,6 @@ class ScrapeCommand(GeneratingCommand):
             if self.mask in url:
                 return self.mask
 
-
-
     def get_file_list(self):
         """
         :return:
@@ -357,7 +375,7 @@ class ScrapeCommand(GeneratingCommand):
         try:
             files = os.listdir(self.download_path)
         except OSError as error:
-            self.logger.error("Unable to find downloaded files in path " + str(self.download_path) + ", error " +
+            self.logger.error("Unable to find downloaded files in path, try not using use_cache option " + str(self.download_path) + ", error " +
                               str(error.errno) )
             sys.exit(1)
 
@@ -433,6 +451,19 @@ class ScrapeCommand(GeneratingCommand):
 
         return blob
 
+    def clean_output(self):
+        """
+            Remove all downloaded files
+        :return:
+        """
+        for item in os.listdir(self.download_path):
+            path = os.path.join(self.download_path, item)
+            if os.path.isfile(path):
+                os.remove(path)
+        try:
+            os.rmdir(self.download_path)
+        except OSError as error:
+            self.logger.info("could not clean up any cached files" + str(self.download_path) + ":"+str(error))
 
 dispatch(ScrapeCommand, sys.argv, sys.stdin, sys.stdout, __name__)
  
