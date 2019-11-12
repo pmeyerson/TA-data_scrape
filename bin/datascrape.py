@@ -7,17 +7,17 @@ if LIBDIR not in sys.path:
     sys.path.append(LIBDIR)
 
 try:
-#    import urllib2
-#    import urlparse
+    import urllib2
+    import urlparse
     from time import sleep, time
-#    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup
     import re
     import glob
     import logging, logging.handlers
 except Exception:
-
+    print("Unable to import modules.  Check environment variable SPLUNK_HOME is set correctly")
     sys.exit(1)
-#from splunk_http_event_collector import http_event_collector
+
 
 #sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
 
@@ -43,9 +43,9 @@ class ScrapeCommand(GeneratingCommand):
 
     logger = logging.getLogger('splunk.Scrape')
     SPLUNK_HOME = os.environ['SPLUNK_HOME']
+    APP_NAME = 'TA-data_scrape'
 
-    LOGGING_DEFAULT_CONFIG_FILE = os.path.join(SPLUNK_HOME, 'etc', 'log.cfg')
-    LOGGING_LOCAL_CONFIG_FILE = os.path.join(SPLUNK_HOME, 'etc', 'log-local.cfg')
+
     LOGGING_STANZA_NAME = 'python'
     LOGGING_FILE_NAME = "scrape.log"
     BASE_LOG_PATH = os.path.join('var', 'log', 'splunk')
@@ -57,25 +57,26 @@ class ScrapeCommand(GeneratingCommand):
     logger.setLevel(logging.INFO)
     
 
-    url = Option(require=True)
+    url = Option()
     mask = Option()
     capture_after = Option()
     break_before = Option()
     single_event_mode = Option(validate=validators.Boolean())
     crawl = Option(validate=validators.Boolean())
+    crawlElement = Option()
     sourcetype = Option()
-    hec_token = Option()
     download_files = Option(validate=validators.Boolean())
     download_only = Option(validate=validators.Boolean())
     path_name = Option()
-    hec_host = Option()
     index = Option()
     log_level = Option()
     skip_download = Option(validate=validators.Boolean())
     delimiter = Option()
 
+    download_path = None
 
-    def normalize_input(self, config):
+
+    def normalize_input(self):
         '''
 
         change string values to boolean where appropriate
@@ -83,171 +84,121 @@ class ScrapeCommand(GeneratingCommand):
         :param self:
         :return:
         '''
-
-        boolean_config_options = ['crawl', 'single_event_mode', 'download_files', 'download_only', 'skip_download']
-        true_values = ["true", "t"]
-        false_values = ["false", "f"]
-
-        for item in config.keys():
-            if item in boolean_config_options and isinstance(config[item], str):
-                if config[item].lower() in true_values:
-                    config[item] = True
-                elif config[item].lower() in false_values:
-                    config[item] = False
+        config = vars(self)['_options']
+        self.logger.debug("normalizing: " +str(config))
 
         # Ensure config['mask'] is always a list to keep code simpler later on
-        if config['mask']:
-            if ',' in config['mask']:
-                self.logger.debug("splitting mask which is right now " + config['mask'])
-                config['mask'] = config['mask'].split(',')
+        if 'mask' in config:
+            if ',' in self.mask:
+                self.mask = self.mask.split(',')
             else:
-                config['mask'] = [config['mask']]
+                self.mask = [self.mask]
 
-        if not config['delimiter']:
-            config['delimiter'] = ';'
-        elif config['delimiter'].lower() in ['none', '', 'ignore']:
-            config['delimiter'] = None
-
-        return config
+        if not self.delimiter:
+            self.delimiter = ';'
+        elif self.delimiter.lower() in ['none', '', 'ignore']:
+            self.delimiter = None
 
     def generate(self):
 
-        # yield{'_time': time(), '_raw': 'foo'}
+         #yield{'_time': time(), '_raw': 'foo'}
 
-        url = self.url
-        mask = self.mask
-        capture_after = self.capture_after
-        break_before = self.break_before
-        single_event_mode = self.single_event_mode
-        crawl = self.crawl
-        sourcetype = self.sourcetype
-        hec_token = self.hec_token
-        hec_host = self.hec_host
-        download_files = self.download_files
-        download_only = self.download_only
-        path_name = self.path_name
-        index = self.index
-        log_level = self.log_level
-        skip_download = self.skip_download
-        delimiter = self.delimiter
+        self.logger.debug("starting command execution")
 
-        self.logger.debug("starting command")
-        if skip_download is None:
-            skip_download = False
+        if self.skip_download is None:
+            self.skip_download = False
 
-        #if not url and not skip_download:
-        #    yield {'_time': time(), '_raw': 'Please specify a url to scrape!  Example: |datascrape url=https://www.foo.com'}
-        #    sys.exit(2)
-
-        if not index:
-            index = "main"
+        if not self.index:
+            self.index = "main"
         
-        if log_level:
-            if log_level.lower() == "debug":
+        if self.log_level:
+            if self.log_level.lower() == "debug" or self.log_level == "DEBUG":
                 self.logger.setLevel(logging.DEBUG)
+                self.logger.debug("SET log level to debug")
             else:
                 self.logger.setLevel(logging.INFO)
-        
-        config = {'url': url, 'mask': mask, 'capture_after': capture_after, 'break_before': break_before,
-                  'single_event_mode': single_event_mode, 'crawl': crawl,
-                  'download_only': download_only, 'skip_download': skip_download, 'delimiter': delimiter}
 
-        config = self.normalize_input(config)
-        self.logger.debug("running with options:" + str(config))
+        self.normalize_input()
+        #self.logger.debug("running with options:" + str(config))
 
-        if hec_token:
-            self.logger.debug("found hec token parameter")
-            hec_endpoint = None
-            #if not hec_host:
-            #    hec_host = "localhost"
-            #hec_endpoint = http_event_collector(hec_token, hec_host)
-            ##self.logger.debug("created hec endpoint")
+        if not self.path_name:
+            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads')
         else:
-            hec_endpoint = None
-        event_options = {'sourcetype': sourcetype, 'index': index}
+            self.download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads', 'path_name')
 
-        #if not path_name:
-        #    download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads')
-        #else:
-        #    download_path = os.path.join(os.path.dirname(LIBDIR), 'downloads', 'path_name')
-        download_path = 'C:\\Program Files\\Splunk\\etc\\apps\\TA-data_scrape\\bin\\downloads'
-        config['path'] = download_path
-        self.logger.debug("scraping with options: " + str(config))
+        # windows support below
+        #download_path = 'C:\\Program Files\\Splunk\\etc\\apps\\TA-data_scrape\\bin\\downloads'
+
+        #self.logger.debug("scraping with options: " + str(config))
         
-        if not skip_download:
-            if not os.path.exists(download_path):
-                os.mkdir(download_path)
+        if not self.skip_download:
+            if not os.path.exists(self.download_path):
+                os.mkdir(self.download_path)
 
-            if download_files:
-                self.find_all_downloads(config)
+        if self.crawl:
+            self.crawl_url()
 
-        files = self.get_file_list(download_path)
+        files = self.get_file_list()
         files_processed_count = 0
         self.logger.debug("we have downloaded " + str(len(files)) + " files")
 
-        if not download_only:
+        if not self.download_only:
             for file_name in files:
-                self.logger.debug("parsing event for " + file_name)
-                events = self.parse_events(file_name, config)
-                self.logger.debug("formatting output for event")
-                output = self.format_output(events, config['delimiter'])
+                events = self.parse_events(file_name)
+                output = self.format_output(events)
 
                 if output:
 
-                    if hec_endpoint:
-                        self.send_http_event(hec_endpoint, event_options)
+                    if self.sourcetype:
+                        yield {'_time': time(), '_raw': output, 'sourcetype': self.sourcetype}
                     else:
-                        if sourcetype:
-                            yield {'_time': time(), '_raw': output, 'sourcetype': sourcetype}
-                        else:
-                            #self.logger.debug("yielding output for file:" + str(file_name))
-                            yield {'_time': time(), '_raw': output}
-
+                        #self.logger.debug("yielding output for file:" + str(file_name))
+                        yield {'_time': time(), '_raw': output}
                     files_processed_count = files_processed_count + 1
+                else:
+                    yield {'_time': time(), '_raw': 'no output parsed from:' + file_name}
+
+
         else:
             for fn in files:
-                yield {'_time': time(), '_raw': 'downloaded ' + '/' + config['path'] + fn}
+                yield {'_time': time(), '_raw': 'downloaded ' + '/' + self.download_path + fn}
 
         sleep(1)
         #self.finish()
 
 
-    def find_all_downloads(self, config):
+    def crawl_url(self):
         """
             Starting with config['url'] and crawl any additional pages until we reach a target.
             Target pages have no embedded links
-        :param config:
-        :param logger:
         :param self:
         :return:
         """
-        url = config['url']
-        mask = config['mask']
         links = None
 
-        #self.logger.debug("find_all_downloads begin with:" + str(url))
-        links = self.get_page_links(url, mask, config)
+        self.logger.debug("find_all_downloads begin with:" + str(self.url))
+        links = self.get_page_links(self.url, self.mask)
         if not links:
             # no links found on page, we must have found a download target
-            parsed_url = urlparse.urlparse(url)
-            self.download_file(config['path'], url, mask, config['download_only'])
+            parsed_url = urlparse.urlparse(self.url)
+            self.download_file(self.download_path, self.url, self.mask, self.download_only)
             sleep(0.2)
 
         while links:
 
             url = links.pop()
-            #self.logger.debug(" looking at page: " + url)
-            mask = self.get_url_mask(url, config)
+            self.logger.debug(" looking at page: " + url)
+            mask = self.get_url_mask(self.url)
             if mask is None:
-                #self.logger.debug("mask is none, skip url " + url)
+                self.logger.debug("mask is none, skip url " + url)
                 continue
-            new_links = self.get_page_links(url, "", config)
+            new_links = self.get_page_links(url, "")
 
             if not new_links:
-                self.download_file(config['path'], url, mask, config['download_only'])
+                self.download_file(self.download_path, url, mask, self.download_only)
                 sleep(0.2)
             else:
-                # #self.logger.debug(" page " + url + " had links " + str(new_links))
+                self.logger.debug(" page " + url + " had links " + str(new_links))
                 for item in new_links:
                     links.append(item)
 
@@ -262,14 +213,18 @@ class ScrapeCommand(GeneratingCommand):
         :param self:
         :return:
         """
-
-        #self.logger.debug("trying to download " + str(url) + " with options: " + str(download_path) + "," + str(mask) +
-        #                  ":" + str(download_only))
+        self.logger.debug("trying to download:" + str(download_path) + ","+str(url)+"," +str(mask) + ","+str(download_only))
         filename = ''
         try:
-            filename = download_path + '/' + url.split(mask)[1][0:].replace('/', '_')
+            mask = self.get_url_mask(url)
+
+            filename = download_path + '/' + url.split(mask)[1][0:].replace('/', '')
         except ValueError:
             print("failed to generate filename for {0}, {1}".format(url, mask))
+            sys.exit(1)
+        except TypeError:
+            print("TypeError formulating filename")
+            sys.exit(1)
         try:
             url_item = urllib2.urlopen(url)
         except urllib2.HTTPError as e:
@@ -301,18 +256,19 @@ class ScrapeCommand(GeneratingCommand):
 
         return data
 
-    def get_page_links(self, url, href_mask, config):
+    def get_page_links(self, url, href_mask):
         """
 
         :param url:
         :param href_mask:
         :return:
         """
-
+        self.logger.debug("looking for links on page: " + str(url) + ", " + str(href_mask))
         if url.rfind('.') > url.rfind('/'):  # url ends with . + file type; is not a web directory name
             page_type = url[url.rfind('.')+1:]
 
-            if page_type.lower() == 'pdf' or page_type.lower() == 'csv' or page_type == 'txt':
+            if page_type.lower() == 'pdf' or page_type.lower() == 'csv' or page_type.lower() == 'txt' or \
+                    page_type.lower() == 'jpg' or page_type.lower() == 'gif':
                 return None
 
         try:
@@ -333,10 +289,13 @@ class ScrapeCommand(GeneratingCommand):
         if not links:
             return None
         u = urlparse.urlparse(url)
-
+        #self.logger.debug("found links:" + str(links))
         # find correct mask
         # #self.logger.debug("found these links:" + str(links))
-        links = self.filter_links(links, config)
+        links = self.filter_links(links)
+        self.logger.debug("filtered links are:" + str(links))
+        if not links:
+            return []
 
         for item in links:
             if item[0] == '/':  # href is relative!
@@ -345,70 +304,73 @@ class ScrapeCommand(GeneratingCommand):
                 formatted_links.append(item)
         return formatted_links
 
-    @staticmethod
-    def filter_links(links, config):
+
+    def filter_links(self, links):
         """
         :param links: list of strings representing urls
-        :param config: dict of configuration options
         :return:
         """
+        self.logger.debug("filtering links using mask: " + str(self.mask))
 
         filtered_links = []
         if not links:
             return None
-        if 'mask' not in config:
-            return None
+
+        self.logger.debug(" iterating through links to filter")
         for item in links:
             if item:
 
                 # TODO use config['mask'] here I think...
                 # if '/Elections/Resources/Files/htm' in item or '/Elections/Results' in item:
-                for mask in config['mask']:
+                for mask in self.mask:
                     if mask in item:
                         filtered_links.append(item)
-
+        self.logger.debug("found these links after filtering: " + str(filtered_links))
         return filtered_links
 
-    @staticmethod
-    def get_url_mask(url, config):
+
+    def get_url_mask(self, url):
         """
         Get the part of the url that is most significant, mainly used for building filename of output
         :param url:
-        :param config:
         :return:
         """
 
-        if not url or not config['mask']:
+        if not url or not self.mask:
             return None
 
-        if isinstance(config['mask'], list):
-            for item in config['mask']:
+        if isinstance(self.mask, list):
+            for item in self.mask:
                 if item in url:
                     return item
-        elif isinstance(config['mask'], str):
-            if config['mask'] in url:
-                return config['mask']
+
+        elif isinstance(self.mask, str):
+            if self.mask in url:
+                return self.mask
 
 
-    @staticmethod
-    def get_file_list(path):
+
+    def get_file_list(self):
         """
-
-        :param path:
         :return:
         """
-        files = os.listdir(path)
+        try:
+            files = os.listdir(self.download_path)
+        except OSError as error:
+            self.logger.error("Unable to find downloaded files in path " + str(self.download_path) + ", error " +
+                              str(error.errno) )
+            sys.exit(1)
+
         full_path = []
         for item in files:
-            full_path.append(path + '/' + item)
+            full_path.append(self.download_path + '/' + item)
         return full_path
 
 
-    def parse_events(self, file_name, config):
+    def parse_events(self, file_name):
         """
 
         :param file_name:
-        :param config:
         :return:
         """
         
@@ -423,39 +385,40 @@ class ScrapeCommand(GeneratingCommand):
 
                 line = fh.readline()
 
-                if config['capture_after']:
-                    while config['capture_after'] not in line:
+                if self.capture_after:
+                    while self.capture_after not in line and line:
                         if len(line) == 0:
                             output = None
-                            print(str(file_name) + " did not find event break begin " + config['capture_after'])
+                            print(str(file_name) + " did not find event break begin " + self.capture_after)
                         line = fh.readline()
-                if config['break_before']:
+
+                if self.break_before:
                     line = fh.readline()
-                    while config['break_before'] not in line:
+                    while self.break_before not in line and line:
                         if len(line) == 0:
                             output = None
-                            print(str(file_name) + " did not find event break end " + config['break_before'])
+                            print(str(file_name) + " did not find event break end " + self.break_before)
                             break
                         output = output + line
                         line = fh.readline()
 
-                if not config['break_before']:
+                if not self.break_before:
                     line = fh.readline()
                     while line:
                         output = output + line
                         line = fh.readline()
+
         except Exception as e:
-            self.logger.info("exception parsing event occured" + str(e))
+            self.logger.info("exception parsing event occurred" + str(e))
         return output
 
-    @staticmethod
-    def format_output(blob, delim):
+    def format_output(self, blob):
         """
         Convert 2+ whitespace to ;
         :param blob:
-        :param delim:  delim char or None
         :return:
         """
+        delim = self.delimiter
         if delim is None:
             return blob
         if blob is None:
@@ -469,26 +432,6 @@ class ScrapeCommand(GeneratingCommand):
         blob = re.sub(r'' + delim + '{2,}', delim, blob).strip()
 
         return blob
-
-    def send_http_event(self, hec_endpoint, blob, **kwargs):
-        """
-
-        :param hec_endpoint:
-        :param blob:
-        :return:
-        """
-        if blob is None:
-            return
-
-        payload = {}
-
-        for item in kwargs.keys():
-            if kwargs[item]:
-                payload.update({item: kwargs[item]})
-
-        payload.update({"event": blob})
-        hec_endpoint.sendEvent(payload)
-        hec_endpoint.flushBatch()
 
 
 dispatch(ScrapeCommand, sys.argv, sys.stdin, sys.stdout, __name__)
