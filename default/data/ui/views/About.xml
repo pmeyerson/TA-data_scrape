@@ -1,5 +1,4 @@
 <dashboard>
-    <title>About</title>
   <row>
     <panel>
       <html>
@@ -8,57 +7,64 @@
             </p>
 <p>
 <b>url</b>: The URL to begin scraping at.  Include the protocol such as https://
-<br></br>Example:  url=https://www.google.com<p>
+  <br></br>Example:  url=https://www.google.com</p>
+<br></br>
+<ul>
+<p><b>Parsing Arguments</b></p>
+<li>
+<b>capture_after</b>: All characters prior to (inclusive) the given will be ignored.  Helpful to filter out junk metadata.
+<br></br>Example: capture_after=PRE  <p></p>
+</li>
+<li>
+<b>break_before</b>: All characters after (inclusive) the given will be ignored.  Helpful to filter out uninteresting text.
+<br></br>Example: break_before=**  <p></p>
+</li>
+     <li>
+        <b>captureId</b>: ID name of HTML element to capture.  capture_after and break_before will be ignored.<br></br>
 
-</p>
-<p><b>mask</b>:  One or more url fragments to require if scraping a tree of urls. 
-Any links that do not include the fragment(s) will not be crawled.  This can help avoid crawling 
+        if the datascraped url has content:<br></br>
+        &lt;html&gt;&lt;body&gt;&lt;div id=&quot;header&quot;&gt;...&lt;div id=&quot;maincontent&quot;&gt;...&lt;div id=&quot;footer&quot;&gt;&lt;br&gt;&lt;/br&gt;
+         The below argument will ignore the header and footer content.<br></br>
+
+        Example: captureId=maincontent
+  <p></p>
+  </li>
+  </ul><br></br>
+  <ul><p><b>Crawling and Caching Arguments</b></p>
+<li>
+<b>single_event_mode</b>: Boolean flag to indicate that only one event will be found on a crawled page. Defaults to false.
+<br></br>Example: single_event_mode = true<p></p>
+</li>
+
+<li>
+<p><b>mask</b>:  One or more url fragments to require if scraping a tree of urls.
+Any links that do not include the fragment(s) will not be crawled.  This can help avoid crawling
 navigation/header links.
 <br></br>Example: mask=/Results/
-<br></br>Example2: mask="/Results,/Districts"</p>
-<p>
-<b>capture_after</b>: All characters prior to (inclusive) the given will be ignored.  Helpful to filter out junk
-metadata.
-<br></br>Example: capture_after=PRE
-</p>
+<br></br>Example2: mask="/Results,/Districts"</p></li>
+<li><b>crawl</b>: Boolean flag to indicate to enable searching for additional URLs to crawl through. Defaults to false.
+<br></br>Example: crawl = true<p></p></li>
 
-<p>
-<b>break_before</b>: All characters after (inclusive) the given will be ignored.  Helpful to filter out uninteresting
-text.
-<br></br>Example: break_before=**
-
-</p><p>
-<b>single_event_mode</b>: Boolean flag to indicate that only one event will be found on a crawled page. Defaults to false.
-<br></br>Example: single_event_mode = true
-</p><p>
-<b>crawl</b>: Boolean flag to indicate to enable searching for additional URLs to crawl through. Defaults to false.
-<br></br>Example: crawl = true
-
-</p><p>
-<b>download_only</b>: Boolean to indicate that files should be downloaded only and not ingested.  Defaults to false.
-<br></br>Example: download_only = true
-</p>
-          <p>
+<li><b>download_only</b>: Boolean to indicate that files should be downloaded only and not ingested.  Defaults to false.
+<br></br>Example: download_only = true<p></p></li>
+<li>
 <b>path_name</b>:  Directory name to be used for saving crawled files; subdirectory of APP_PATH/bin/downloads.
-If blank, data will be downloaded to APP_PATH/bin/downloads.
-Example: path_name = elections2018
-
-</p>
-          <p>
-<b>log_level</b>: Use DEBUG to increase log level.
-<br></br>Example: log_level = DEBUG
-</p>
-          <p>
+If blank, data will be downloaded to APP_PATH/bin/downloads.<br></br>
+Example: path_name = elections2018<p></p></li>
+<li>
 <b>use_cache</b>: Boolean to indicate we should only process already downloaded content.  Specify path_name if you
 did so when you downloaded the data originally.  Otherwise content from APP_PATH/bin/downloads will be ingested.
-<br></br>Example: use_cache=true
-
-</p><p>
+<br></br>Example: use_cache=true<p></p></li>
+<li>
 <b>cache_files</b>:  Any downloaded files should be retained after parsing.
-Example: cache_files = true
-
-</p>
-    </html>
+Example: cache_files = true<p></p></li><br></br>
+</ul>  <ul><p><b>Utility Arguments</b></p>
+<li><b>log_level</b>: Use DEBUG to increase log level.
+<br></br>Example: log_level = DEBUG
+</li>
+</ul>
+</html>
     </panel>
   </row>
+
 </dashboard>

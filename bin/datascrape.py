@@ -11,6 +11,7 @@ try:
     import urlparse
     from time import sleep, time
     from bs4 import BeautifulSoup
+    from bs4 import SoupStrainer
     import re
     import glob
     import logging, logging.handlers
@@ -23,6 +24,15 @@ except Exception:
 
 from splunklib.searchcommands import \
     dispatch, GeneratingCommand, Configuration, Option, validators
+
+
+class Error(Exception):
+    pass
+
+
+class HtmlElementNotFound(Error):
+    """Raised when crawlElement is specified but soup.find(id=self.crawlElement) is null"""
+    pass
 
 
 @Configuration(type='events', retainsevents=True, streaming=False)
@@ -75,7 +85,6 @@ class ScrapeCommand(GeneratingCommand):
     delimiter = Option()
 
     download_path = None
-
 
     def normalize_input(self):
         '''
@@ -146,7 +155,6 @@ class ScrapeCommand(GeneratingCommand):
             else:
                 yield {'_time': time(), '_raw': 'No content to retrieve from ' + str(self.url)}
 
-
         files_processed_count = 0
         self.logger.debug("we have downloaded " + str(len(files)) + " files")
 
@@ -173,7 +181,6 @@ class ScrapeCommand(GeneratingCommand):
         sleep(1)
         if not self.cache_files:
             self.clean_output()
-
 
     def crawl_url(self):
         """
@@ -243,25 +250,18 @@ class ScrapeCommand(GeneratingCommand):
         except TypeError:
             print("TypeError formulating filename")
             sys.exit(1)
-        try:
-            url_item = urllib2.urlopen(url)
-        except urllib2.HTTPError as e:
-            print(str(e.errno) + " HTTP ERROR RETURNED FROM URL " + str(url))
-            sys.exit(1)
-        except urllib2.URLError as e:
-            print(e.reason + ": url was " + str(url))
-            sys.exit(1)
-        data = url_item.read()
+
+        data = self.read_url(url)
+
         with open(filename, 'w') as file_handle:
             file_handle.write("url: "+str(url))
             file_handle.write(data)
 
     @staticmethod
-    def read_url(url, mask):
+    def read_url(url):
         """
 
         :param url:
-        :param mask:
         :return:
         """
         try:
@@ -283,7 +283,7 @@ class ScrapeCommand(GeneratingCommand):
         """
         if not url:
             return []
-        self.logger.debug("looking for links on page: " + str(url) + ", " + str(href_mask))
+
         if url.rfind('.') > url.rfind('/'):  # url ends with . + file type; is not a web directory name
             page_type = url[url.rfind('.')+1:]
 
@@ -291,16 +291,10 @@ class ScrapeCommand(GeneratingCommand):
                     page_type.lower() == 'jpg' or page_type.lower() == 'gif':
                 return None
 
-        try:
-            html_document = urllib2.urlopen(url)
-        except urllib2.HTTPError as e:
-            print(str(e.errno) + " HTTP ERROR RETURNED FROM URL " + str(url))
-            sys.exit(3)
-        except urllib2.URLError as e:
-            print(e.reason + ": url was " + str(url))
-            sys.exit(4)
+        html_document = self.read_url(url)
+        only_a_tags = SoupStrainer("a")
 
-        soup = BeautifulSoup(html_document.read(), 'html.parser')
+        soup = BeautifulSoup(html_document.read(), 'html.parser', parse_only=only_a_tags)
         links = []
         formatted_links = []
 
@@ -309,9 +303,6 @@ class ScrapeCommand(GeneratingCommand):
         if not links:
             return None
         u = urlparse.urlparse(url)
-        #self.logger.debug("found links:" + str(links))
-        # find correct mask
-        # #self.logger.debug("found these links:" + str(links))
         links = self.filter_links(links)
         self.logger.debug("filtered links are:" + str(links))
         if not links:
@@ -323,7 +314,6 @@ class ScrapeCommand(GeneratingCommand):
             else:
                 formatted_links.append(item)
         return formatted_links
-
 
     def filter_links(self, links):
         """
@@ -347,7 +337,6 @@ class ScrapeCommand(GeneratingCommand):
                         filtered_links.append(item)
         self.logger.debug("found these links after filtering: " + str(filtered_links))
         return filtered_links
-
 
     def get_url_mask(self, url):
         """
@@ -384,7 +373,6 @@ class ScrapeCommand(GeneratingCommand):
             full_path.append(self.download_path + '/' + item)
         return full_path
 
-
     def parse_events(self, file_name):
         """
 
@@ -400,6 +388,20 @@ class ScrapeCommand(GeneratingCommand):
 
         try:
             with open(file_name, 'r') as fh:
+
+                if self.crawlElement:
+                    data = fh.read()
+
+                    soup = BeautifulSoup(data, 'html.parser')
+                    output = soup.find(id=self.crawlElement)
+
+                    if not output:
+                        error_str = "HTML element " + self.crawlElement + " not found at url " + self.url
+                        raise HtmlElementNotFound(error_str)
+
+                    output.smooth()
+                    output = output.renderContents()
+                    return output
 
                 line = fh.readline()
 
@@ -436,6 +438,8 @@ class ScrapeCommand(GeneratingCommand):
         :param blob:
         :return:
         """
+
+        self.logger.debug("formatting " + str(blob))
         delim = self.delimiter
         if delim is None:
             return blob
@@ -465,5 +469,5 @@ class ScrapeCommand(GeneratingCommand):
         except OSError as error:
             self.logger.info("could not clean up any cached files" + str(self.download_path) + ":"+str(error))
 
+
 dispatch(ScrapeCommand, sys.argv, sys.stdin, sys.stdout, __name__)
- 
