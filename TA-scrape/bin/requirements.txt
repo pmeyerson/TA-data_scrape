@@ -1,0 +1,7 @@
+bs4
+requests>=2.22.0
+pytest
+pycharm-pytest
+pathlib2
+
+

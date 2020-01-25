@@ -1,0 +1,5 @@
+<nav>
+    
+    <view name="flashtimeline" default='true' />
+  	<view name="About" default='false' />
+</nav>

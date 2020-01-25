@@ -1,0 +1,6 @@
+splunk_http_event_collector.py
+Splunk_HEC.egg-info/PKG-INFO
+Splunk_HEC.egg-info/SOURCES.txt
+Splunk_HEC.egg-info/dependency_links.txt
+Splunk_HEC.egg-info/requires.txt
+Splunk_HEC.egg-info/top_level.txt

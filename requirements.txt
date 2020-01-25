@@ -1,0 +1,6 @@
+beautifulsoup4
+pytest
+requests
+splunk-sdk==1.6.11
+black
+codecov
