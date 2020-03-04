@@ -82,4 +82,9 @@ Example: ` | scrape https://www.google.com cache_files = true ` <p></p></li><br>
 Example: | scrape url=https://www.cnn.com log_level = DEBUG ` 
 
   DEBUG level logging will be used, see index=_internal 
+  
+## Support ##
+
+Feel free to raise an issue for assistence or to report a bug.
+If you encounter a bug please include your splunk version and python version for your server (if running Splunk 8)
 </html>
