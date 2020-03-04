@@ -1,0 +1,14 @@
+version: '3.6'
+services:
+  splunk:
+    image: ${SPLUNK_IMAGE:-splunk/splunk:latest}
+    container_name: splunk
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=Superman1234
+    ports:
+      - 8000:8000
+    volumes:
+      - type: bind
+        source: c:/users/pmeye/Documents/repos/TA-data_scrape/TA-scrape
+        target: /opt/splunk/etc/apps/TA-scrape

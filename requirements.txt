@@ -1,6 +1,12 @@
+six
 beautifulsoup4
 pytest
-requests
+pycharm-pytest
 splunk-sdk==1.6.11
 black
 codecov
+urllib2
+future
+requests>=2.22.0
+pathlib2
+
