@@ -75,8 +75,7 @@ Example: ` | scrape use_cache=true path_name = elections2018 ` <p></p>
 <b>cache_files</b>:  Any downloaded files should be retained after parsing.  This can be useful to scrape content once while you work on perfecting the event parsing parameters to use.
 Example: ` | scrape https://www.google.com cache_files = true ` <p></p></li><br></br>
 
-
-## <b>Utility Arguments</b> ## </p>
+## <b>Utility Arguments</b> ## 
 <b>log_level</b>: Use DEBUG to increase log level.
 
 Example: ` | scrape url=https://www.cnn.com log_level = DEBUG ` 
