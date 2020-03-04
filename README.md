@@ -79,7 +79,7 @@ Example: ` | scrape https://www.google.com cache_files = true ` <p></p></li><br>
 ## <b>Utility Arguments</b> ## </p>
 <b>log_level</b>: Use DEBUG to increase log level.
 
-Example: | scrape url=https://www.cnn.com log_level = DEBUG ` 
+Example: ` | scrape url=https://www.cnn.com log_level = DEBUG ` 
 
   DEBUG level logging will be used, see index=_internal 
   
