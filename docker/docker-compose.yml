@@ -5,7 +5,7 @@ services:
     container_name: splunk
     environment:
       - SPLUNK_START_ARGS=--accept-license
-      - SPLUNK_PASSWORD=Superman1234
+      - SPLUNK_PASSWORD=bestpassword
     ports:
       - 8000:8000
     volumes:

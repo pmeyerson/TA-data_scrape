@@ -1,7 +1,0 @@
-../splunk_http_event_collector.py
-../splunk_http_event_collector.pyc
-top_level.txt
-dependency_links.txt
-PKG-INFO
-requires.txt
-SOURCES.txt
