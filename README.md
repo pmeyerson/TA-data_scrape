@@ -1,5 +1,5 @@
 # TA-data_scrape
-Splunk custom search command to perform simple text web scraping against a URL or against a crawled URL tree.  crawled and parsed content is used to generate events.  Events can be retained by appending  | outputlookup lookup_name
+Splunk custom search command to perform simple text web scraping against a URL or against a crawled URL tree.  crawled and parsed content is used to generate events.  Events can be retained by appending ` | outputlookup lookup_name `
 
 ## Installation ## 
 
