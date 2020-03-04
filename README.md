@@ -1,6 +1,10 @@
 # TA-data_scrape
 Splunk custom search command to perform simple text web scraping against a URL or against a crawled URL tree.
 
+## Installation ## 
+
+Download the latest release .spl file from the Releases tab, or clone this repository and move the TA-scrape subdirectory into your $SPLUNK_HOME/etc/apps.
+
 ## Usage ## 
 ``` | scrape url=https://www.google.com ```
 
